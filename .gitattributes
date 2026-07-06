@@ -1,0 +1,22 @@
+* text=auto eol=lf
+
+# Queste righe dicono a Git:
+# “Quando fai git diff su questi file, usa un parser più adatto al tipo di file.”
+# significa che quando modifichi un file PHP, Git cercherà di mostrare i blocchi modificati in modo più intelligente,
+# riconoscendo meglio funzioni, classi, metodi, ecc.
+# Queste regole non cambiano il contenuto dei file, non cambiano il commit e non fanno formattazione automatica.
+# Servono solo a migliorare strumenti come:
+# git diff
+# git log -p
+# git show
+*.blade.php diff=html
+*.css diff=css
+*.html diff=html
+*.md diff=markdown
+*.php diff=php
+
+# Queste righe servono quando crei un archivio del repository con  'git archive'
+# export-ignore dice: “Questi file possono stare nel repository, ma non inserirli negli archivi esportati.”
+/.github export-ignore
+CHANGELOG.md export-ignore
+.styleci.yml export-ignore
