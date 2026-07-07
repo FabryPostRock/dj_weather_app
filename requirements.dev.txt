@@ -7,3 +7,4 @@ psycopg[binary,pool]>=3.3,<3.4
 django-storages>=1.14.6,<1.15
 PyJWT>=2.13.0,<3.0
 cryptography>=49.0.0,<50.0
+python-dotenv>=1.2.2,<1.3
