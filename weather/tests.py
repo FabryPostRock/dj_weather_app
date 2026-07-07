@@ -5,7 +5,17 @@ from weather.serializers import (
     DailyWeatherOutputSerializer,
 )
 
+from weather.services import (
+    should_create_event,
+    get_next_event_index,
+    create_new_event,
+    grow_event,
+    grow_existing_events,
+    process_daily_weather,
+)
 
+
+################################## SERAILIZERS ##############################################
 class DailyWeatherInputSerializerTests(SimpleTestCase):
     def test_valid_first_call_without_events(self):
         '''
@@ -201,3 +211,245 @@ class DailyWeatherOutputSerializerTests(SimpleTestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("events", serializer.errors)
+
+
+
+################################## DATA MANIPULATION ##############################################
+
+
+
+def fixed_growth_step() -> float:
+    """
+    Funzione deterministica usata nei test.
+    Invece di usare random.choice(), restituisce sempre 0.2.
+    """
+    return 0.2
+
+
+class WeatherServicesTests(SimpleTestCase):
+    def test_should_create_event_with_leaf_wetness_and_rain(self):
+        payload = {
+            "doy": 126,
+            "temperature": 10.0,
+            "bagnatura": 1,
+            "humidity": 50.0,
+            "rain": 5.0,
+            "events": [],
+        }
+
+        result = should_create_event(payload)
+        self.assertTrue(result)
+
+    def test_should_create_event_with_leaf_wetness_humidity_and_temperature(self):
+        payload = {
+            "doy": 126,
+            "temperature": 16.0,
+            "bagnatura": 1,
+            "humidity": 85.0,
+            "rain": 0.0,
+            "events": [],
+        }
+
+        result = should_create_event(payload)
+        self.assertTrue(result)
+
+    def test_should_not_create_event_when_conditions_are_false(self):
+        payload = {
+            "doy": 126,
+            "temperature": 14.0,
+            "bagnatura": 0,
+            "humidity": 70.0,
+            "rain": 0.0,
+            "events": [],
+        }
+
+        result = should_create_event(payload)
+        self.assertFalse(result)
+
+    def test_get_next_event_index_when_events_are_empty(self):
+        events = []
+        result = get_next_event_index(events)
+        self.assertEqual(result, 0)
+
+    def test_get_next_event_index_when_events_exist(self):
+        events = [
+            {"index": 0, "X": 0.2},
+            {"index": 1, "X": 0.4},
+            {"index": 2, "X": 0.6},
+        ]
+
+        result = get_next_event_index(events)
+        self.assertEqual(result, 3)
+
+    def test_create_new_event(self):
+        result = create_new_event(index=0)
+
+        expected = {
+            "index": 0,
+            "X": 0.0,
+        }
+
+        self.assertEqual(result, expected)
+
+    def test_grow_event_increases_x(self):
+        event = {
+            "index": 0,
+            "X": 0.2,
+        }
+
+        result = grow_event(
+            event=event,
+            growth_step_selector=fixed_growth_step,
+        )
+
+        expected = {
+            "index": 0,
+            "X": 0.4,
+        }
+
+        self.assertEqual(result, expected)
+
+    def test_grow_event_does_not_exceed_one(self):
+        event = {
+            "index": 0,
+            "X": 0.9,
+        }
+
+        result = grow_event(
+            event=event,
+            growth_step_selector=fixed_growth_step,
+        )
+
+        expected = {
+            "index": 0,
+            "X": 1.0,
+        }
+
+        self.assertEqual(result, expected)
+
+    def test_grow_event_remains_one_when_already_completed(self):
+        event = {
+            "index": 0,
+            "X": 1.0,
+        }
+
+        result = grow_event(
+            event=event,
+            growth_step_selector=fixed_growth_step,
+        )
+
+        expected = {
+            "index": 0,
+            "X": 1.0,
+        }
+
+        self.assertEqual(result, expected)
+
+    def test_grow_event_does_not_mutate_original_event(self):
+        event = {
+            "index": 0,
+            "X": 0.2,
+        }
+
+        result = grow_event(
+            event=event,
+            growth_step_selector=fixed_growth_step,
+        )
+
+        self.assertEqual(event["X"], 0.2)
+        self.assertEqual(result["X"], 0.4)
+
+    def test_grow_existing_events(self):
+        events = [
+            {"index": 0, "X": 0.0},
+            {"index": 1, "X": 0.3},
+        ]
+
+        result = grow_existing_events(
+            events=events,
+            growth_step_selector=fixed_growth_step,
+        )
+
+        expected = [
+            {"index": 0, "X": 0.2},
+            {"index": 1, "X": 0.5},
+        ]
+
+        self.assertEqual(result, expected)
+
+    def test_process_daily_weather_creates_first_event(self):
+        payload = {
+            "doy": 126,
+            "temperature": 16.0,
+            "bagnatura": 1,
+            "humidity": 85.0,
+            "rain": 0.0,
+            "events": [],
+        }
+
+        result = process_daily_weather(
+            payload=payload,
+            growth_step_selector=fixed_growth_step,
+        )
+
+        expected = {
+            "doy": 126,
+            "events": [
+                {"index": 0, "X": 0.0},
+            ],
+        }
+
+        self.assertEqual(result, expected)
+
+    def test_process_daily_weather_updates_existing_events_without_new_event(self):
+        payload = {
+            "doy": 127,
+            "temperature": 14.0,
+            "bagnatura": 0,
+            "humidity": 70.0,
+            "rain": 0.0,
+            "events": [
+                {"index": 0, "X": 0.0},
+            ],
+        }
+
+        result = process_daily_weather(
+            payload=payload,
+            growth_step_selector=fixed_growth_step,
+        )
+
+        expected = {
+            "doy": 127,
+            "events": [
+                {"index": 0, "X": 0.2},
+            ],
+        }
+
+        self.assertEqual(result, expected)
+
+    def test_process_daily_weather_updates_existing_events_and_appends_new_event(self):
+        payload = {
+            "doy": 128,
+            "temperature": 20.0,
+            "bagnatura": 1,
+            "humidity": 60.0,
+            "rain": 10.0,
+            "events": [
+                {"index": 0, "X": 0.2},
+            ],
+        }
+
+        result = process_daily_weather(
+            payload=payload,
+            growth_step_selector=fixed_growth_step,
+        )
+
+        expected = {
+            "doy": 128,
+            "events": [
+                {"index": 0, "X": 0.4},
+                {"index": 1, "X": 0.0},
+            ],
+        }
+
+        self.assertEqual(result, expected)
