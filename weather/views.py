@@ -29,6 +29,11 @@ class DailyWeatherEventAPIView(APIView):
     - non salva events nel database;
     - non usa sessioni;
     - non mantiene memoria interna tra una chiamata e l'altra.
+
+    Per testare :
+    curl -X POST http://127.0.0.1:8000/api/weather/events/ ^
+    -H "Content-Type: application/json" ^
+    -d "{\"doy\":126,\"temperature\":15.94,\"bagnatura\":1,\"humidity\":97.25,\"rain\":0.0}"
     """
 
     permission_classes = [AllowAny]
