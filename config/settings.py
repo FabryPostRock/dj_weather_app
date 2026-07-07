@@ -202,3 +202,26 @@ LOGGING = {
         },
     },
 }
+
+
+# Django REST Framework
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
+    "TEST_REQUEST_DEFAULT_FORMAT": "json",
+}
+
+
+# OpenAPI / Swagger documentation
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Django Weather App API",
+    "DESCRIPTION": "REST API per simulazione eventi meteo - Problema 1 e Problema 2",
+    "VERSION": "1.0.0",
+    # Serve a separare nello schema OpenAPI i serializer usati per la request da quelli usati per la response.
+    # A volte lo stesso serializer può avere campi che si comportano diversamente tra input e output.
+    # Non cambia il comportamento reale dell’endpoint.
+    "COMPONENT_SPLIT_REQUEST": True,
+}

@@ -36,8 +36,6 @@ class DailyWeatherEventAPIView(APIView):
     -d "{\"doy\":126,\"temperature\":15.94,\"bagnatura\":1,\"humidity\":97.25,\"rain\":0.0}"
     """
 
-    permission_classes = [AllowAny]
-
     # @extend_schema serve solo per la documentazione OpenAPI/Swagger generata da drf-spectacular.
     # Non cambia la logica della view.
     @extend_schema(
