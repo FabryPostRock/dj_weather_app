@@ -1,3 +1,66 @@
 from django.shortcuts import render
 
-# Create your views here.
+import logging
+
+from drf_spectacular.utils import extend_schema
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from weather.serializers import (
+    DailyWeatherInputSerializer,
+    DailyWeatherOutputSerializer,
+)
+from weather.services import process_daily_weather
+
+
+logger = logging.getLogger(__name__)
+
+
+class DailyWeatherEventAPIView(APIView):
+    """
+    REST API per il Problema 1.
+
+    Riceve dati meteo giornalieri e lo stato opzionale degli eventi precedenti.
+    Restituisce il nuovo stato degli eventi.
+
+    L'API è stateless:
+    - non salva events nel database;
+    - non usa sessioni;
+    - non mantiene memoria interna tra una chiamata e l'altra.
+    """
+
+    permission_classes = [AllowAny]
+
+    # @extend_schema serve solo per la documentazione OpenAPI/Swagger generata da drf-spectacular.
+    # Non cambia la logica della view.
+    @extend_schema(
+        request=DailyWeatherInputSerializer,
+        responses={status.HTTP_200_OK: DailyWeatherOutputSerializer},
+        description=(
+            "Elabora i dati meteo giornalieri e restituisce lo stato aggiornato "
+            "degli eventi secondo la logica del Problema 1."
+        ),
+    )
+    def post(self, request):
+        input_serializer = DailyWeatherInputSerializer(data=request.data)
+
+        input_serializer.is_valid(raise_exception=True)
+
+        validated_payload = input_serializer.validated_data
+
+        logger.info(
+            "Processing daily weather payload for doy=%s",
+            validated_payload["doy"],
+        )
+
+        output_payload = process_daily_weather(validated_payload)
+
+        output_serializer = DailyWeatherOutputSerializer(data=output_payload)
+        output_serializer.is_valid(raise_exception=True)
+
+        return Response(
+            output_serializer.validated_data,
+            status=status.HTTP_200_OK,
+        )
