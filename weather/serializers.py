@@ -1,5 +1,6 @@
 from rest_framework import serializers
-
+import logging
+logger = logging.getLogger(__name__)
 
 class EventSerializer(serializers.Serializer):
     """
@@ -62,7 +63,8 @@ class DailyWeatherInputSerializer(serializers.Serializer):
         """
 
         indexes = [event["index"] for event in events]
-
+        logger.info(f'indexes : {indexes}')
+        logger.info(f'events : {events}')
         if len(indexes) != len(set(indexes)):
             raise serializers.ValidationError(
                 "Gli eventi non possono avere index duplicati."

@@ -53,6 +53,7 @@ class DailyWeatherEventAPIView(APIView):
 
         validated_payload = input_serializer.validated_data
 
+        logger.info(f'validated_payload : {validated_payload}')
         logger.info(
             "Processing daily weather payload for doy=%s",
             validated_payload["doy"],
