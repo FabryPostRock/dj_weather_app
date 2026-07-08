@@ -1,6 +1,12 @@
 import random
 from typing import Any, Callable
+from django.db import transaction
 
+from weather.models import ForecastDay
+from weather.serializers import (
+    DailyWeatherInputSerializer,
+    DailyWeatherOutputSerializer,
+)
 
 Event = dict[str, int | float]
 WeatherPayload = dict[str, Any]
@@ -171,4 +177,125 @@ def process_daily_weather(
     return {
         "doy": payload["doy"],
         "events": updated_events,
+    }
+
+
+############################################### MULTI-DAY ####################################################
+
+
+def process_multi_day_weather(payload: WeatherPayload) -> dict[str, Any]:
+    """
+    Chiama la logica del Problema 1 trattandola come black-box.
+
+    Il Problema 2 conosce solo:
+    - il formato JSON di input del Problema 1;
+    - il formato JSON di output del Problema 1.
+
+    Non usa direttamente le funzioni interne di crescita/creazione evento.
+    """
+
+    input_serializer = DailyWeatherInputSerializer(data=payload)
+    input_serializer.is_valid(raise_exception=True)
+
+    result = process_daily_weather(input_serializer.validated_data)
+
+    output_serializer = DailyWeatherOutputSerializer(data=result)
+    output_serializer.is_valid(raise_exception=True)
+
+    return output_serializer.validated_data
+
+
+
+def save_forecast_day_result(
+    weather_day: dict[str, Any],
+    result: dict[str, Any],
+) -> ForecastDay:
+    """
+    Salva nel DB il risultato prodotto per un singolo DOY.
+
+    Il campo events rappresenta lo stato finale degli eventi alla fine
+    del giorno elaborato.
+    """
+
+    forecast_day, _created = ForecastDay.objects.update_or_create(
+        doy=result["doy"],
+        defaults={
+            "temperature": weather_day["temperature"],
+            "bagnatura": weather_day["bagnatura"],
+            "humidity": weather_day["humidity"],
+            "rain": weather_day["rain"],
+            "events": result["events"],
+            "processed": True,
+        },
+    )
+
+    return forecast_day
+
+
+ 
+
+# Esegue tutto il codice dentro questa funzione come un’unica transazione database.
+@transaction.atomic
+def process_oidio_forecast_days(
+    weather_days: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """
+    Funzione principale del Problema 2.
+
+    Riceve una sequenza multi-DOY già validata dal ForecastRequestSerializer.
+
+    Regole:
+    - il primo giorno contiene events, cioè lo stato antecedente alla sequenza;
+    - per ogni giorno viene costruito il payload compatibile con il Problema 1;
+    - il Problema 1 viene chiamato come black-box;
+    - il risultato di ogni giorno viene salvato in ForecastDay;
+    - se un giorno è già processed=True, non viene ricalcolato.
+    """
+
+    results = []
+
+    current_events = weather_days[0]["events"]
+
+    for weather_day in weather_days:
+        doy = weather_day["doy"]
+
+        existing_forecast_day = (
+            ForecastDay.objects
+            .filter(doy=doy, processed=True)
+            .first()
+        )
+
+        if existing_forecast_day is not None:
+            # Converte un record ForecastDay nel formato pubblico di output:
+            result =  {
+                        "doy": existing_forecast_day.doy,
+                        "events": existing_forecast_day.events,
+                    }
+            current_events = result["events"]
+            results.append(result)
+            continue
+
+        # WeatherPayload object 
+        # - weather_day contiene i dati meteo del giorno corrente.
+        # - previous_events contiene lo stato eventi del giorno precedente.
+        problem_1_payload = {
+                "doy": weather_day["doy"],
+                "temperature": weather_day["temperature"],
+                "bagnatura": weather_day["bagnatura"],
+                "humidity": weather_day["humidity"],
+                "rain": weather_day["rain"],
+                "events": current_events,
+            }
+        result = process_multi_day_weather(problem_1_payload)
+
+        save_forecast_day_result(
+            weather_day=weather_day,
+            result=result,
+        )
+
+        current_events = result["events"]
+        results.append(result)
+
+    return {
+        "days": results,
     }
