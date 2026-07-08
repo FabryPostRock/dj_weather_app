@@ -110,6 +110,8 @@ def grow_event(
     - se X è già 1, lo lascia a 1;
     - altrimenti sceglie casualmente uno step di crescita;
     - limita sempre il risultato a X <= 1.
+
+    growth_step_selector nei test sarà valorizzata senza scelte random in modo da essere prevedibile.
     """
 
     current_x = float(event["X"])
