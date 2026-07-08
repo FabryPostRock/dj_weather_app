@@ -3,6 +3,8 @@ from django.test import SimpleTestCase
 from weather.serializers import (
     DailyWeatherInputSerializer,
     DailyWeatherOutputSerializer,
+    ForecastRequestSerializer,
+    ForecastResponseSerializer,
 )
 
 from weather.services import (
@@ -453,3 +455,414 @@ class WeatherServicesTests(SimpleTestCase):
         }
 
         self.assertEqual(result, expected)
+
+################################## PROBLEMA 2 SERIALIZERS ##############################################
+
+
+class ForecastRequestSerializerTests(SimpleTestCase):
+    def test_valid_forecast_request_with_first_day_events(self):
+        """
+        Verifica che una richiesta multi-DOY valida venga accettata.
+
+        Il primo giorno contiene events.
+        I giorni successivi contengono solo dati meteo.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 0.7},
+                        {"index": 1, "X": 0.0},
+                    ],
+                },
+                {
+                    "doy": 276,
+                    "temperature": 28.0,
+                    "bagnatura": 0,
+                    "humidity": 30.0,
+                    "rain": 0.0,
+                },
+                {
+                    "doy": 277,
+                    "temperature": 27.0,
+                    "bagnatura": 1,
+                    "humidity": 59.0,
+                    "rain": 22.0,
+                },
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(len(serializer.validated_data["days"]), 3)
+
+        first_day = serializer.validated_data["days"][0]
+
+        self.assertEqual(first_day["doy"], 275)
+        self.assertIn("events", first_day)
+        self.assertEqual(first_day["events"][0]["index"], 0)
+        self.assertEqual(first_day["events"][0]["X"], 0.7)
+
+    def test_events_in_following_days_are_ignored(self):
+        """
+        Verifica che eventuali events presenti nei giorni successivi al primo
+        vengano ignorati.
+
+        Nel Problema 2 lo stato events deve entrare solo nel primo giorno
+        della sequenza multi-DOY.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 0.7},
+                    ],
+                },
+                {
+                    "doy": 276,
+                    "temperature": 28.0,
+                    "bagnatura": 0,
+                    "humidity": 30.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 99, "X": 1.0},
+                    ],
+                },
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+        second_day = serializer.validated_data["days"][1]
+
+        self.assertEqual(second_day["doy"], 276)
+        self.assertNotIn("events", second_day)
+
+    def test_missing_events_on_first_day_is_invalid(self):
+        """
+        Verifica che il primo giorno debba obbligatoriamente contenere events.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                },
+                {
+                    "doy": 276,
+                    "temperature": 28.0,
+                    "bagnatura": 0,
+                    "humidity": 30.0,
+                    "rain": 0.0,
+                },
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+    def test_empty_days_list_is_invalid(self):
+        """
+        Verifica che la lista days non possa essere vuota.
+        """
+        payload = {
+            "days": []
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+    def test_more_than_eight_days_is_invalid(self):
+        """
+        Verifica il limite massimo:
+        1 giorno storico + massimo 7 giorni previsionali = 8 giorni totali.
+        """
+        days = []
+
+        for doy in range(275, 284):
+            day = {
+                "doy": doy,
+                "temperature": 25.0,
+                "bagnatura": 0,
+                "humidity": 50.0,
+                "rain": 0.0,
+            }
+
+            if doy == 275:
+                day["events"] = [
+                    {"index": 0, "X": 0.7},
+                ]
+
+            days.append(day)
+
+        payload = {
+            "days": days
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+    def test_duplicate_doys_are_invalid(self):
+        """
+        Verifica che non siano ammessi DOY duplicati.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 0.7},
+                    ],
+                },
+                {
+                    "doy": 275,
+                    "temperature": 28.0,
+                    "bagnatura": 0,
+                    "humidity": 30.0,
+                    "rain": 0.0,
+                },
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+    def test_unordered_doys_are_invalid(self):
+        """
+        Verifica che i DOY debbano essere ordinati in modo crescente.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 276,
+                    "temperature": 28.0,
+                    "bagnatura": 0,
+                    "humidity": 30.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 0.7},
+                    ],
+                },
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                },
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+    def test_non_consecutive_doys_are_invalid(self):
+        """
+        Verifica che i DOY debbano essere consecutivi.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 0.7},
+                    ],
+                },
+                {
+                    "doy": 277,
+                    "temperature": 27.0,
+                    "bagnatura": 1,
+                    "humidity": 59.0,
+                    "rain": 22.0,
+                },
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+    def test_duplicate_event_indexes_on_first_day_are_invalid(self):
+        """
+        Verifica che events del primo giorno non possa contenere index duplicati.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 0.7},
+                        {"index": 0, "X": 0.2},
+                    ],
+                }
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+    def test_invalid_event_x_on_first_day_is_invalid(self):
+        """
+        Verifica che X degli eventi iniziali debba essere compreso tra 0 e 1.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 1.5},
+                    ],
+                }
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+    def test_invalid_weather_field_is_invalid(self):
+        """
+        Verifica che i campi meteo vengano validati anche nei giorni successivi.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 0.7},
+                    ],
+                },
+                {
+                    "doy": 276,
+                    "temperature": 28.0,
+                    "bagnatura": 2,
+                    "humidity": 30.0,
+                    "rain": 0.0,
+                },
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+
+class ForecastResponseSerializerTests(SimpleTestCase):
+    def test_valid_forecast_response(self):
+        """
+        Verifica che la response del Problema 2 accetti una lista di risultati
+        nel formato della black-box del Problema 1: doy + events.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "events": [
+                        {"index": 0, "X": 0.7},
+                        {"index": 1, "X": 0.0},
+                    ],
+                },
+                {
+                    "doy": 276,
+                    "events": [
+                        {"index": 0, "X": 0.9},
+                        {"index": 1, "X": 0.1},
+                    ],
+                },
+            ]
+        }
+
+        serializer = ForecastResponseSerializer(data=payload)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(len(serializer.validated_data["days"]), 2)
+        self.assertEqual(serializer.validated_data["days"][0]["doy"], 275)
+        self.assertEqual(serializer.validated_data["days"][1]["events"][0]["X"], 0.9)
+
+    def test_forecast_response_without_events_is_invalid(self):
+        """
+        Verifica che ogni giorno della response debba contenere events.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                }
+            ]
+        }
+
+        serializer = ForecastResponseSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
+
+    def test_forecast_response_with_invalid_x_is_invalid(self):
+        """
+        Verifica che anche la response multi-DOY rispetti il vincolo 0 <= X <= 1.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "events": [
+                        {"index": 0, "X": 1.2},
+                    ],
+                }
+            ]
+        }
+
+        serializer = ForecastResponseSerializer(data=payload)
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("days", serializer.errors)
