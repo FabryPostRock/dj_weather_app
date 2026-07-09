@@ -11,8 +11,13 @@ from rest_framework.views import APIView
 from weather.serializers import (
     DailyWeatherInputSerializer,
     DailyWeatherOutputSerializer,
+    ForecastRequestSerializer,
+    ForecastResponseSerializer,
 )
-from weather.services import process_daily_weather
+from weather.services import (
+    process_daily_weather,
+    process_oidio_forecast_days,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -62,6 +67,46 @@ class DailyWeatherEventAPIView(APIView):
         output_payload = process_daily_weather(validated_payload)
 
         output_serializer = DailyWeatherOutputSerializer(data=output_payload)
+        output_serializer.is_valid(raise_exception=True)
+
+        return Response(
+            output_serializer.validated_data,
+            status=status.HTTP_200_OK,
+        )
+
+
+
+class OidioForecastAPIView(APIView):
+    """
+    REST API per il Problema 2.
+
+    Riceve una sequenza multi-DOY:
+    - il primo giorno contiene anche events, cioè lo stato antecedente alla sequenza;
+    - i giorni successivi contengono solo dati meteo.
+
+    Per ogni giorno, la view delega al service del Problema 2,
+    che chiama il Problema 1 come black-box e salva i risultati nel DB.
+    """
+
+    @extend_schema(
+        request=ForecastRequestSerializer,
+        responses={status.HTTP_200_OK: ForecastResponseSerializer},
+        description=(
+            "Elabora una sequenza multi-DOY per il modello Oidio. "
+            "Il primo giorno deve contenere lo stato events antecedente "
+            "alla sequenza. La risposta contiene, per ogni DOY, gli events "
+            "risultanti."
+        ),
+    )
+    def post(self, request):
+        input_serializer = ForecastRequestSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+
+        output_payload = process_oidio_forecast_days(
+            weather_days=input_serializer.validated_data["days"],
+        )
+
+        output_serializer = ForecastResponseSerializer(data=output_payload)
         output_serializer.is_valid(raise_exception=True)
 
         return Response(
