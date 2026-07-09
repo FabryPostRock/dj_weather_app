@@ -237,6 +237,35 @@ class ForecastRequestSerializer(serializers.Serializer):
         ),
     )
 
+    def to_internal_value(self, data):
+        """
+        Normalizza i dati grezzi prima della validazione.
+
+        Gli events sono semanticamente validi solo nel primo giorno.
+        Se il client li invia anche nei giorni successivi, vengono rimossi
+        prima che i serializer figli li validino.
+        """
+
+        if isinstance(data, dict) and isinstance(data.get("days"), list):
+            normalized_data = data.copy()
+            normalized_days = []
+
+            for index, raw_day in enumerate(normalized_data["days"]):
+                if isinstance(raw_day, dict):
+                    day_copy = raw_day.copy()
+
+                    if index > 0:
+                        day_copy.pop("events", None)
+
+                    normalized_days.append(day_copy)
+                else:
+                    normalized_days.append(raw_day)
+
+            normalized_data["days"] = normalized_days
+            data = normalized_data
+
+        return super().to_internal_value(data)
+
     def validate_days(self, days):
         if len(days) > self.MAX_TOTAL_DAYS:
             raise serializers.ValidationError(

@@ -509,13 +509,13 @@ class ForecastRequestSerializerTests(SimpleTestCase):
         self.assertEqual(first_day["events"][0]["index"], 0)
         self.assertEqual(first_day["events"][0]["X"], 0.7)
 
-    def test_events_in_following_days_are_ignored(self):
+    def test_events_in_following_days_are_allowed_but_removed_by_serializer(self):
         """
-        Verifica che eventuali events presenti nei giorni successivi al primo
-        vengano ignorati.
+        Con il serializer attuale, events è un campo opzionale di ogni giorno.
 
-        Nel Problema 2 lo stato events deve entrare solo nel primo giorno
-        della sequenza multi-DOY.
+        Quindi, se il client invia events anche nei giorni successivi,
+        il serializer li accetta ma li rimuove da validated_data.
+
         """
         payload = {
             "days": [
@@ -551,6 +551,7 @@ class ForecastRequestSerializerTests(SimpleTestCase):
         self.assertEqual(second_day["doy"], 276)
         self.assertNotIn("events", second_day)
 
+
     def test_missing_events_on_first_day_is_invalid(self):
         """
         Verifica che il primo giorno debba obbligatoriamente contenere events.
@@ -579,6 +580,30 @@ class ForecastRequestSerializerTests(SimpleTestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("days", serializer.errors)
 
+    def test_empty_events_on_first_day_is_valid(self):
+            """
+            Verifica che events sul primo giorno possa essere una lista vuota.
+
+            Questo rappresenta una sequenza iniziale senza eventi attivi precedenti.
+            """
+            payload = {
+                "days": [
+                    {
+                        "doy": 275,
+                        "temperature": 30.0,
+                        "bagnatura": 0,
+                        "humidity": 32.0,
+                        "rain": 0.0,
+                        "events": [],
+                    }
+                ]
+            }
+
+            serializer = ForecastRequestSerializer(data=payload)
+
+            self.assertTrue(serializer.is_valid(), serializer.errors)
+            self.assertEqual(serializer.validated_data["days"][0]["events"], [])
+
     def test_empty_days_list_is_invalid(self):
         """
         Verifica che la lista days non possa essere vuota.
@@ -591,6 +616,38 @@ class ForecastRequestSerializerTests(SimpleTestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("days", serializer.errors)
+
+    def test_exactly_eight_days_is_valid(self):
+        """
+        Verifica che 8 giorni siano validi:
+        1 giorno storico + massimo 7 giorni previsionali.
+        """
+        days = []
+
+        for doy in range(275, 283):
+            day = {
+                "doy": doy,
+                "temperature": 25.0,
+                "bagnatura": 0,
+                "humidity": 50.0,
+                "rain": 0.0,
+            }
+
+            if doy == 275:
+                day["events"] = [
+                    {"index": 0, "X": 0.7},
+                ]
+
+            days.append(day)
+
+        payload = {
+            "days": days
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(len(serializer.validated_data["days"]), 8)
 
     def test_more_than_eight_days_is_invalid(self):
         """
@@ -742,6 +799,44 @@ class ForecastRequestSerializerTests(SimpleTestCase):
         self.assertFalse(serializer.is_valid())
         self.assertIn("days", serializer.errors)
 
+    def test_duplicate_event_indexes_on_following_day_are_valid_if_events_are_sent(self):
+        """
+        Con il serializer attuale, se events viene inviato in un giorno successivo,
+        viene comunque validato.
+
+        Quindi anche lì gli index duplicati non sono ammessi.
+        """
+        payload = {
+            "days": [
+                {
+                    "doy": 275,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 0.7},
+                    ],
+                },
+                {
+                    "doy": 276,
+                    "temperature": 28.0,
+                    "bagnatura": 0,
+                    "humidity": 30.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 2, "X": 0.2},
+                        {"index": 2, "X": 0.4},
+                    ],
+                },
+            ]
+        }
+
+        serializer = ForecastRequestSerializer(data=payload)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
     def test_invalid_event_x_on_first_day_is_invalid(self):
         """
         Verifica che X degli eventi iniziali debba essere compreso tra 0 e 1.
@@ -785,7 +880,7 @@ class ForecastRequestSerializerTests(SimpleTestCase):
                 {
                     "doy": 276,
                     "temperature": 28.0,
-                    "bagnatura": 2,
+                    "bagnatura": 2, #invalid
                     "humidity": 30.0,
                     "rain": 0.0,
                 },
