@@ -2,7 +2,7 @@ from django.shortcuts import render
 
 import logging
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiExample, extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -91,6 +91,70 @@ class OidioForecastAPIView(APIView):
     @extend_schema(
         request=ForecastRequestSerializer,
         responses={status.HTTP_200_OK: ForecastResponseSerializer},
+        examples=[
+                OpenApiExample(
+                    name="Request multi-DOY valida",
+                    value={
+                        "days": [
+                            {
+                                "doy": 284,
+                                "temperature": 28.0,
+                                "bagnatura": 0,
+                                "humidity": 30.0,
+                                "rain": 0.0,
+                                "events": [
+                                    {"index": 0, "X": 0.0},
+                                    {"index": 1, "X": 0.0},
+                                    {"index": 2, "X": 0.0},
+                                    {"index": 3, "X": 0.0},
+                                ],
+                            },
+                            {
+                                "doy": 285,
+                                "temperature": 30.0,
+                                "bagnatura": 0,
+                                "humidity": 32.0,
+                                "rain": 0.0,
+                            },
+                            {
+                                "doy": 286,
+                                "temperature": 32.0,
+                                "bagnatura": 0,
+                                "humidity": 40.0,
+                                "rain": 0.0,
+                            },
+                        ]
+                    },
+                    request_only=True,
+                ),
+                OpenApiExample(
+                    name="Response multi-DOY valida",
+                    value={
+                        "days": [
+                            {
+                                "doy": 284,
+                                "events": [
+                                    {"index": 0, "X": 0.2},
+                                    {"index": 1, "X": 0.1},
+                                    {"index": 2, "X": 0.3},
+                                    {"index": 3, "X": 0.1},
+                                ],
+                            },
+                            {
+                                "doy": 285,
+                                "events": [
+                                    {"index": 0, "X": 0.4},
+                                    {"index": 1, "X": 0.2},
+                                    {"index": 2, "X": 0.5},
+                                    {"index": 3, "X": 0.4},
+                                ],
+                            },
+                        ]
+                    },
+                    response_only=True,
+                    status_codes=["200"],
+                ),
+            ],
         description=(
             "Elabora una sequenza multi-DOY per il modello Oidio. "
             "Il primo giorno deve contenere lo stato events antecedente "

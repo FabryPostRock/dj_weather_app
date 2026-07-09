@@ -97,6 +97,48 @@ class ForecastWeatherDayInputSerializer(serializers.Serializer):
     Questo serializer valida solo i dati meteo.
     Non contiene events, perché gli events sono ammessi solo sul primo giorno
     della richiesta multi-DOY e vengono gestiti dal ForecastRequestSerializer.
+
+    
+    Input:
+
+        {
+            "days": [
+                {
+                    "doy": 284,
+                    "temperature": 28.0,
+                    "bagnatura": 0,
+                    "humidity": 30.0,
+                    "rain": 0.0,
+                    "events": [
+                        {"index": 0, "X": 0.0},
+                        {"index": 1, "X": 0.0},
+                        {"index": 2, "X": 0.0},
+                        {"index": 3, "X": 0.0}
+                    ]
+                },
+                {
+                    "doy": 285,
+                    "temperature": 30.0,
+                    "bagnatura": 0,
+                    "humidity": 32.0,
+                    "rain": 0.0
+                },
+                {
+                    "doy": 286,
+                    "temperature": 32.0,
+                    "bagnatura": 0,
+                    "humidity": 40.0,
+                    "rain": 0.0
+                },
+                {
+                    "doy": 287,
+                    "temperature": 34.0,
+                    "bagnatura": 0,
+                    "humidity": 45.0,
+                    "rain": 0.0
+                }
+            ]
+        }
     """
 
     doy = serializers.IntegerField(min_value=1, max_value=366)
@@ -115,6 +157,7 @@ class ForecastFirstWeatherDayInputSerializer(ForecastWeatherDayInputSerializer):
 
     Esempio:
     se la sequenza parte da doy=170, events rappresenta lo stato del doy=169.
+
     """
 
     events = EventSerializer(
