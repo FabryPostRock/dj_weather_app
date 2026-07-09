@@ -141,34 +141,41 @@ class ForecastWeatherDayInputSerializer(serializers.Serializer):
         }
     """
 
-    doy = serializers.IntegerField(min_value=1, max_value=366)
-    temperature = serializers.FloatField()
-    bagnatura = serializers.IntegerField(min_value=0, max_value=1)
-    humidity = serializers.FloatField(min_value=0.0, max_value=100.0)
-    rain = serializers.FloatField(min_value=0.0)
-
-
-class ForecastFirstWeatherDayInputSerializer(ForecastWeatherDayInputSerializer):
-    """
-    Serializer per il primo giorno della richiesta multi-DOY del Problema 2.
-
-    Il primo giorno deve contenere anche events, cioè lo stato del modello
-    antecedente al primo DOY della sequenza.
-
-    Esempio:
-    se la sequenza parte da doy=170, events rappresenta lo stato del doy=169.
-
-    """
-
+    doy = serializers.IntegerField(
+        min_value=1,
+        max_value=366,
+        help_text="Day Of Year, valore compreso tra 1 e 366.",
+    )
+    temperature = serializers.FloatField(
+        help_text="Temperatura media giornaliera in gradi Celsius.",
+    )
+    bagnatura = serializers.IntegerField(
+        min_value=0,
+        max_value=1,
+        help_text="Bagnatura fogliare: 0=foglia asciutta, 1=foglia bagnata.",
+    )
+    humidity = serializers.FloatField(
+        min_value=0.0,
+        max_value=100.0,
+        help_text="Umidità media giornaliera percentuale, valore tra 0 e 100.",
+    )
+    rain = serializers.FloatField(
+        min_value=0.0,
+        help_text="Pioggia cumulata giornaliera in millimetri.",
+    )
     events = EventSerializer(
         many=True,
-        required=True,
+        required=False,
         allow_empty=True,
+        help_text=(
+            "Stato events antecedente alla sequenza. "
+            "Deve essere presente solo nel primo giorno."
+        ),
     )
-
+    
     def validate_events(self, events):
         """
-        Verifica che non ci siano index duplicati nello stato iniziale.
+        Verifica che non ci siano index duplicati.
         """
 
         indexes = [event["index"] for event in events]
@@ -184,6 +191,13 @@ class ForecastFirstWeatherDayInputSerializer(ForecastWeatherDayInputSerializer):
 class ForecastRequestSerializer(serializers.Serializer):
     """
     Serializer per la request multi-giornaliera del Problema 2.
+    Regole:
+        - la lista days deve contenere almeno 1 giorno;
+        - il numero massimo di giorni è 8:
+        1 giorno storico + massimo 7 giorni previsionali;
+        - il primo giorno deve contenere events;
+        - eventuali events presenti nei giorni successivi vengono ignorati;
+        - i DOY devono essere univoci, ordinati e consecutivi.
 
     Formato atteso:
 
@@ -210,30 +224,27 @@ class ForecastRequestSerializer(serializers.Serializer):
         ]
     }
 
-    Regole:
-    - la lista days deve contenere almeno 1 giorno;
-    - il numero massimo di giorni è 8:
-      1 giorno storico + massimo 7 giorni previsionali;
-    - il primo giorno deve contenere events;
-    - eventuali events presenti nei giorni successivi vengono ignorati;
-    - i DOY devono essere univoci, ordinati e consecutivi.
     """
 
     MAX_TOTAL_DAYS = 8
 
-    days = serializers.ListField(
-        child=serializers.DictField(),
+    days = ForecastWeatherDayInputSerializer(
+        many=True,
         allow_empty=False,
+        help_text=(
+            "Lista di giorni meteo da elaborare. "
+            "Il primo giorno deve contenere anche events."
+        ),
     )
 
-    def validate_days(self, raw_days):
-        if len(raw_days) > self.MAX_TOTAL_DAYS:
+    def validate_days(self, days):
+        if len(days) > self.MAX_TOTAL_DAYS:
             raise serializers.ValidationError(
                 "La richiesta può contenere al massimo 8 giorni: "
                 "1 giorno storico + massimo 7 giorni previsionali."
             )
 
-        first_raw_day = raw_days[0]
+        first_raw_day = days[0]
 
         if "events" not in first_raw_day:
             raise serializers.ValidationError(
@@ -247,40 +258,7 @@ class ForecastRequestSerializer(serializers.Serializer):
                 }
             )
 
-        validated_days = []
-        errors = {}
-
-        first_day_serializer = ForecastFirstWeatherDayInputSerializer(
-            data=first_raw_day
-        )
-
-        if first_day_serializer.is_valid():
-            validated_days.append(first_day_serializer.validated_data)
-        else:
-            errors[0] = first_day_serializer.errors
-
-        for index, raw_day in enumerate(raw_days[1:], start=1):
-            # Gli events eventualmente presenti nei giorni successivi
-            # vengono ignorati per rispettare la semantica del Problema 2.
-            raw_day_without_events = {
-                key: value
-                for key, value in raw_day.items()
-                if key != "events"
-            }
-
-            day_serializer = ForecastWeatherDayInputSerializer(
-                data=raw_day_without_events
-            )
-
-            if day_serializer.is_valid():
-                validated_days.append(day_serializer.validated_data)
-            else:
-                errors[index] = day_serializer.errors
-
-        if errors:
-            raise serializers.ValidationError(errors)
-
-        doys = [day["doy"] for day in validated_days]
+        doys = [day["doy"] for day in days]
 
         if len(doys) != len(set(doys)):
             raise serializers.ValidationError(
@@ -299,7 +277,7 @@ class ForecastRequestSerializer(serializers.Serializer):
                 "I DOY devono essere consecutivi."
             )
 
-        return validated_days
+        return days
 
 
 
