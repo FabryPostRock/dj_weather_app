@@ -1,4 +1,4 @@
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 
 from weather.serializers import (
     DailyWeatherInputSerializer,
@@ -16,6 +16,10 @@ from weather.services import (
     process_daily_weather,
 )
 
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError
+
+from weather.models import ForecastDay
 
 ################################## SERAILIZERS ##############################################
 class DailyWeatherInputSerializerTests(SimpleTestCase):
@@ -961,3 +965,121 @@ class ForecastResponseSerializerTests(SimpleTestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("days", serializer.errors)
+
+
+#################################################### FORECAST MODEL ###############################################################
+
+
+
+
+class ForecastDayModelTests(TestCase):
+    def test_create_valid_forecast_day(self):
+        forecast_day = ForecastDay.objects.create(
+            doy=275,
+            temperature=30.0,
+            bagnatura=0,
+            humidity=32.0,
+            rain=0.0,
+            events=[
+                {"index": 0, "X": 0.7},
+                {"index": 1, "X": 0.0},
+            ],
+            processed=True,
+        )
+
+        self.assertEqual(forecast_day.doy, 275)
+        self.assertEqual(len(forecast_day.events), 2)
+        self.assertTrue(forecast_day.processed)
+
+    def test_events_default_is_empty_list(self):
+        forecast_day = ForecastDay.objects.create(
+            doy=276,
+            temperature=28.0,
+            bagnatura=0,
+            humidity=30.0,
+            rain=0.0,
+        )
+
+        self.assertEqual(forecast_day.events, [])
+        self.assertFalse(forecast_day.processed)
+
+    def test_doy_must_be_unique(self):
+        ForecastDay.objects.create(
+            doy=277,
+            temperature=27.0,
+            bagnatura=1,
+            humidity=59.0,
+            rain=22.0,
+        )
+
+        with self.assertRaises(IntegrityError):
+            ForecastDay.objects.create(
+                doy=277,
+                temperature=25.0,
+                bagnatura=0,
+                humidity=50.0,
+                rain=0.0,
+            )
+
+    def test_invalid_doy_fails_model_validation(self):
+        forecast_day = ForecastDay(
+            doy=367,
+            temperature=30.0,
+            bagnatura=0,
+            humidity=32.0,
+            rain=0.0,
+        )
+
+        with self.assertRaises(ValidationError):
+            forecast_day.full_clean()
+
+    def test_invalid_bagnatura_fails_model_validation(self):
+        forecast_day = ForecastDay(
+            doy=278,
+            temperature=30.0,
+            bagnatura=2,
+            humidity=32.0,
+            rain=0.0,
+        )
+
+        with self.assertRaises(ValidationError):
+            forecast_day.full_clean()
+
+    def test_invalid_humidity_fails_model_validation(self):
+        forecast_day = ForecastDay(
+            doy=279,
+            temperature=30.0,
+            bagnatura=0,
+            humidity=120.0,
+            rain=0.0,
+        )
+
+        with self.assertRaises(ValidationError):
+            forecast_day.full_clean()
+
+    def test_invalid_rain_fails_model_validation(self):
+        forecast_day = ForecastDay(
+            doy=280,
+            temperature=30.0,
+            bagnatura=0,
+            humidity=32.0,
+            rain=-1.0,
+        )
+
+        with self.assertRaises(ValidationError):
+            forecast_day.full_clean()
+
+    def test_string_representation(self):
+        forecast_day = ForecastDay.objects.create(
+            doy=281,
+            temperature=30.0,
+            bagnatura=0,
+            humidity=32.0,
+            rain=0.0,
+            processed=True,
+        )
+
+        self.assertEqual(
+            str(forecast_day),
+            "ForecastDay doy=281 processed=True",
+        )
