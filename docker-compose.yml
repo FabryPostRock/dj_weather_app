@@ -1,0 +1,61 @@
+services:
+  weather:
+    container_name: django_web_local
+    image: weather${DOCKER_FILE_SUFFIX:--local}:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/weather
+      - static-data:/vol/web/static
+      - media-data:/vol/web/media
+    env_file:
+      - .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      SECRET_KEY: ${DJANGO_SECRET_KEY}
+      ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,0.0.0.0}
+      DEBUG: ${DEBUG:-0}
+      DJANGO_RUN_LOCAL_WEB_SERVER: ${DJANGO_RUN_LOCAL_WEB_SERVER}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - docker_net
+
+  db:
+    container_name: db_server
+    hostname: weather_server_db
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${DB_NAME:-dj_weather_app}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      # si usano due dollari $$ perché Docker Compose altrimenti proverebbe a sostituire
+      # ${POSTGRES_USER} prima di passarlo al container. Con $$, la variabile viene risolta dentro il container PostgreSQL.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - docker_net
+
+networks:
+  docker_net:
+    driver: bridge
+
+volumes:
+  static-data:
+  media-data:
+  db-data:
