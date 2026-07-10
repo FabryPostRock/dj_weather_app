@@ -33,12 +33,12 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "changeme")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(int(os.environ.get("DEBUG", 0)))
-logger.warning(
-    "°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°° DEBUG IS °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
-)
-logger.warning(
-    f"°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°° {DEBUG} °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
-)
+# logger.warning(
+#    "°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°° DEBUG IS °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
+# )
+# logger.warning(
+#    f"°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°° {DEBUG} °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
+# )
 default_allowed_hosts = "localhost,127.0.0.1" if DEBUG else ""
 ALLOWED_HOSTS = []
 ALLOWED_HOSTS.extend(

@@ -1,6 +1,9 @@
-from rest_framework import serializers
 import logging
+
+from rest_framework import serializers
+
 logger = logging.getLogger(__name__)
+
 
 class EventSerializer(serializers.Serializer):
     """
@@ -49,11 +52,7 @@ class DailyWeatherInputSerializer(serializers.Serializer):
     humidity = serializers.FloatField(min_value=0.0, max_value=100.0)
     rain = serializers.FloatField(min_value=0.0)
 
-    events = EventSerializer(
-        many=True,
-        required=False,
-        default=list
-    )
+    events = EventSerializer(many=True, required=False, default=list)
 
     def validate_events(self, events):
         """
@@ -63,8 +62,6 @@ class DailyWeatherInputSerializer(serializers.Serializer):
         """
 
         indexes = [event["index"] for event in events]
-        logger.info(f'indexes : {indexes}')
-        logger.info(f'events : {events}')
         if len(indexes) != len(set(indexes)):
             raise serializers.ValidationError(
                 "Gli eventi non possono avere index duplicati."
@@ -98,7 +95,7 @@ class ForecastWeatherDayInputSerializer(serializers.Serializer):
     Non contiene events, perché gli events sono ammessi solo sul primo giorno
     della richiesta multi-DOY e vengono gestiti dal ForecastRequestSerializer.
 
-    
+
     Input:
 
         {
@@ -172,7 +169,7 @@ class ForecastWeatherDayInputSerializer(serializers.Serializer):
             "Deve essere presente solo nel primo giorno."
         ),
     )
-    
+
     def validate_events(self, events):
         """
         Verifica che non ci siano index duplicati.
@@ -302,12 +299,9 @@ class ForecastRequestSerializer(serializers.Serializer):
         expected_doys = list(range(doys[0], doys[0] + len(doys)))
 
         if doys != expected_doys:
-            raise serializers.ValidationError(
-                "I DOY devono essere consecutivi."
-            )
+            raise serializers.ValidationError("I DOY devono essere consecutivi.")
 
         return days
-
 
 
 class ForecastResponseSerializer(serializers.Serializer):
