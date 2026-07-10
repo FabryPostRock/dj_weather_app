@@ -10,10 +10,10 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import logging
 import os
 from pathlib import Path
-from datetime import timedelta
-import logging
+
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -21,7 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 logger = logging.getLogger(__name__)
 
 # Load .env file from project root
-# Utile per test senza docker. carica le variabili dal file .env, ma non sovrascrivere eventuali variabili 
+# Utile per test senza docker. carica le variabili dal file .env, ma non sovrascrivere eventuali variabili
 # ambiente già esistenti nel sistema/processo.
 load_dotenv(BASE_DIR / ".env", override=False)
 
@@ -29,27 +29,31 @@ load_dotenv(BASE_DIR / ".env", override=False)
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'changeme')
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "changeme")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool(int(os.environ.get('DEBUG', 0)))
-logger.warning(f'°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°° DEBUG IS °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°')
-logger.warning(f'°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°° {DEBUG} °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°')
+DEBUG = bool(int(os.environ.get("DEBUG", 0)))
+logger.warning(
+    "°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°° DEBUG IS °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
+)
+logger.warning(
+    f"°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°° {DEBUG} °°°°°°°°°°°°°°°°°°°°°°°°°°°°°°°"
+)
 default_allowed_hosts = "localhost,127.0.0.1" if DEBUG else ""
 ALLOWED_HOSTS = []
 ALLOWED_HOSTS.extend(
     filter(
         None,
-        os.environ.get('ALLOWED_HOSTS', default_allowed_hosts).split(','),
+        os.environ.get("ALLOWED_HOSTS", default_allowed_hosts).split(","),
     )
 )
-logger.warning(f'{ALLOWED_HOSTS}')
+logger.warning(f"{ALLOWED_HOSTS}")
 # Application definition
 
 INSTALLED_APPS = [
     # Local apps
     "weather",
-
+    "db",
     # Django apps
     "django.contrib.admin",
     "django.contrib.auth",
@@ -57,57 +61,55 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'django.core.mail.backends',
-
+    "django.core.mail.backends",
     # Third-party apps
     "rest_framework",
-    'rest_framework.authtoken',
+    "rest_framework.authtoken",
     "drf_spectacular",
-
-    'django_extensions',
+    "django_extensions",
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'config.urls'
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'config.wsgi.application'
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'HOST': os.environ.get('DB_HOST'),
-        'NAME': os.environ.get('DB_NAME'),
-        'USER': os.environ.get('DB_USER'),
-        'PASSWORD': os.environ.get('DB_PASS'),
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "HOST": os.environ.get("DB_HOST"),
+        "NAME": os.environ.get("DB_NAME"),
+        "USER": os.environ.get("DB_USER"),
+        "PASSWORD": os.environ.get("DB_PASS"),
     }
 }
 
@@ -116,16 +118,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -133,9 +135,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -143,14 +145,20 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
+# https://docs.djangoproject.com/en/3.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "/static/static/"
+MEDIA_URL = "/static/media/"
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+MEDIA_ROOT = "/vol/web/media"
+STATIC_ROOT = "/vol/web/static"
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+STATICFILES_FINDERS = [
+    "django.contrib.staticfiles.finders.FileSystemFinder",
+    "django.contrib.staticfiles.finders.AppDirectoriesFinder",
+]
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
 # Logging
@@ -161,7 +169,6 @@ LOG_DIR.mkdir(exist_ok=True)
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-
     "formatters": {
         "verbose": {
             "format": "{levelname} {asctime} {module} {message}",
@@ -169,7 +176,6 @@ LOGGING = {
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
     },
-
     "handlers": {
         "console": {
             "level": "INFO",
@@ -183,7 +189,6 @@ LOGGING = {
             "formatter": "verbose",
         },
     },
-
     "loggers": {
         "django": {
             "handlers": ["console", "file"],

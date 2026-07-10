@@ -40,18 +40,19 @@ RUN python -m venv /py && \
 # with root priviledge and we will noSt be able to access these volumes
 # chown generally requires sudo/root permissions. Owning the file alone is not enough to be able to change the owner.
 RUN useradd --create-home --shell /bin/bash django-user && \
-    mkdir -p /app /scripts /vol/web/static /vol/web/media && \
-    chown -R django-user:django-user /app /scripts /vol/web
+    mkdir -p /dj_weather_app /scripts /vol/web/static /vol/web/media && \
+    chown -R django-user:django-user /dj_weather_app /scripts /vol/web
 
-WORKDIR /weather
+WORKDIR /dj_weather_app
 
-COPY ./weather /weather
-COPY ./config /weather/config
-COPY ./manage.py /weather/manage.py
+COPY ./manage.py /dj_weather_app/manage.py
+COPY ./config /dj_weather_app/config
+COPY ./weather /dj_weather_app/weather
+COPY ./db /dj_weather_app/db
 COPY ./scripts/run.sh /scripts/run.sh
 
 RUN chmod +x /scripts/run.sh && \
-    chown -R django-user:django-user /app /scripts /vol/web
+    chown -R django-user:django-user /dj_weather_app /scripts /vol/web
 
 USER django-user
 

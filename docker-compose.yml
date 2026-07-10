@@ -1,12 +1,12 @@
 services:
   weather:
-    container_name: django_web_local
-    image: weather${DOCKER_FILE_SUFFIX:--local}:latest
+    container_name: django_web_${DOCKER_FILE_SUFFIX:-local}
+    image: weather${DOCKER_FILE_SUFFIX:-local}:latest
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - .:/weather
+      #- .:/weather
       - static-data:/vol/web/static
       - media-data:/vol/web/media
     env_file:
